@@ -482,8 +482,21 @@ static void (*obs_encoder_set_gpu_scale_type_func)(obs_encoder_t *encoder, enum 
 
 static bool (*obs_encoder_set_frame_rate_divisor_func)(obs_encoder_t *, uint32_t) = NULL;
 
+/* ACHP replay fix: the replay buffer can only cut the saved clip at a
+ * keyframe, so a long GOP makes replay length vary a lot (a 6 s target came
+ * out anywhere from ~3 s to ~12 s because x264's default GOP is ~250 frames /
+ * ~8 s @30fps). Force a 1-second keyframe interval whenever it is left on auto
+ * (0); an explicit user value > 0 is respected. With ~1 s keyframes a 6 s
+ * replay stays within ~6-7 s. */
+static void ensure_replay_keyint(obs_data_t *settings)
+{
+	if (obs_data_get_int(settings, "keyint_sec") <= 0)
+		obs_data_set_int(settings, "keyint_sec", 1);
+}
+
 static void update_video_encoder(struct source_record_filter_context *filter, obs_data_t *settings)
 {
+	ensure_replay_keyint(settings);
 	if (obs_encoder_video(filter->encoder) != filter->video_output) {
 		if (obs_encoder_active(filter->encoder)) {
 			obs_encoder_release(filter->encoder);
@@ -750,6 +763,7 @@ static void set_encoder_defaults(obs_data_t *settings)
 
 static void update_encoder(struct source_record_filter_context *filter, obs_data_t *settings)
 {
+	ensure_replay_keyint(settings);
 	const char *enc_id = get_encoder_id(settings);
 	const bool need_new_encoder = !filter->encoder || strcmp(obs_encoder_get_id(filter->encoder), enc_id) != 0;
 	if (need_new_encoder && filter->encoder && obs_encoder_active(filter->encoder)) {
@@ -2625,7 +2639,7 @@ static void websocket_stop_stream(obs_data_t *request_data, obs_data_t *response
 
 bool obs_module_load(void)
 {
-	blog(LOG_INFO, "[Source Record] loaded version %s (ACHP build: native 'Save Replay' hotkey)", PROJECT_VERSION);
+	blog(LOG_INFO, "[Source Record] loaded version %s (ACHP build: Save Replay hotkey + 1s keyint)", PROJECT_VERSION);
 	obs_register_source(&source_record_filter_info);
 
 	da_init(source_record_filters);
