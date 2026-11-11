@@ -71,8 +71,18 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)unpack]}) )) {
   # added unconditionally, so also drop it from the obs plugin list.
   git config submodule."plugins/enc-amf".update none
   git config submodule."plugins/mac-syphon/syphon-framework".update none
-  git submodule update --init --recursive
+  # Several obs 29 submodules pin commits in repos that no longer resolve.
+  # Don't let a failed clone abort the whole build; the plugins that actually
+  # need a missing submodule are handled below. None is needed to build THIS
+  # plugin.
+  git submodule update --init --recursive || true
+  # mac-syphon (Syphon capture) is added unconditionally and compiles its
+  # (now dead) submodule sources -> drop it from the obs plugin list.
   sed -i '' 's|add_subdirectory(mac-syphon)|# ACHP disabled (dead submodule): &|' plugins/CMakeLists.txt
+  # obs-browser aborts configuration with FATAL_ERROR if its submodule is
+  # missing; this plugin does not need the browser source, so soften it to a
+  # warning so a rotted obs-browser submodule can't abort the build.
+  sed -i '' 's|obs_status(FATAL_ERROR "obs-browser submodule not available.")|obs_status(WARNING "obs-browser submodule not available (ACHP: skipped)")|' plugins/CMakeLists.txt
 }
 
 if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
