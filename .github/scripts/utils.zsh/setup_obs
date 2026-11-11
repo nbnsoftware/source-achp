@@ -64,11 +64,15 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)unpack]}) )) {
   }
 
   git submodule foreach --recursive git submodule sync
-  # ACHP: skip obs' enc-amf submodule. It is the AMD encoder (Windows-only, not
-  # built on macOS) and its upstream (obs-amd-encoder) fails to clone
-  # recursively, aborting the whole build. It is not needed to build this plugin.
+  # ACHP: obs 29's enc-amf and mac-syphon submodules no longer clone (their
+  # upstreams are dead / rewritten, and the pinned commits are gone). Neither is
+  # needed to build THIS plugin, so skip both submodules. enc-amf is already
+  # optional in obs' cmake, so skipping its submodule is enough; mac-syphon is
+  # added unconditionally, so also drop it from the obs plugin list.
   git config submodule."plugins/enc-amf".update none
+  git config submodule."plugins/mac-syphon/syphon-framework".update none
   git submodule update --init --recursive
+  sed -i '' 's|add_subdirectory(mac-syphon)|# ACHP disabled (dead submodule): &|' plugins/CMakeLists.txt
 }
 
 if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
